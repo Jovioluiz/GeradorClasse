@@ -71,7 +71,6 @@ object frmPrincipal: TfrmPrincipal
     Width = 305
     Height = 21
     TabOrder = 3
-    Text = 'C:\Users\jovio\Desktop\Delphi'
   end
   object dialog: TOpenDialog
     Left = 552

@@ -5,7 +5,7 @@ interface
 uses
   Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants, System.Classes, Vcl.Graphics,
   Vcl.Controls, Vcl.Forms, Vcl.Dialogs, Vcl.StdCtrls, uCarregaInformacoesBanco,
-  uManipuladorClasse, Vcl.Buttons;
+  uManipuladorClasse, Vcl.Buttons, FileCtrl;
 
 type
   TfrmPrincipal = class(TForm)
@@ -117,9 +117,14 @@ begin
 end;
 
 procedure TfrmPrincipal.SpeedButton1Click(Sender: TObject);
+var
+  dir: string;
 begin
-  if dialog.Execute then
-    edtDiretorio.Text := dialog.FileName;
+  if SelectDirectory(ExtractFilePath(dialog.FileName), 'C:\', dir) then
+    edtDiretorio.Text := dir;
+
+//  if dialog.Execute then
+//    edtDiretorio.Text := dialog.FileName;
 end;
 
 end.

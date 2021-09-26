@@ -16,7 +16,8 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     function FormataParametros(NomeTabela: string): string;
     function FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
     function FormataParametrosPesquisar(NomeTabela, NomePk: string): string;
-
+    function FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
+    function FormataMetodosSets(NomeTabela: string): string;
   public
     procedure CriaClasse(NomeTabela: string);
     function FormataStringInsert(NomeTabela: string): string;
@@ -132,7 +133,8 @@ begin
     for var colunas in DadosTabela do
     begin
       Write(arquivo, '    ');
-      Write(arquivo, 'property ' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ' read ' + 'F' + colunas.NomeColuna + ' write ' + 'Set' + colunas.typeColuna + ';');
+      Write(arquivo, 'property ' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ' read '
+                     + 'F' + colunas.NomeColuna + ' write ' + 'Set' + colunas.typeColuna + ';');
       Writeln(arquivo);
     end;
 
@@ -153,12 +155,15 @@ begin
     Writeln(arquivo);
     Writeln(arquivo);
 
+    //metodo insert
     insert := FormataStringInsert(NomeTabela);
     Write(arquivo, insert);
     Writeln(arquivo);
+    //metodo update
     update := FormataStringUpdate(NomeTabela, pkTabela.NomeColunaPk);
     Write(arquivo, update);
 
+    //metodo pesquisar pela pk
     if pkTabela.NomeColunaPk <> '' then
     begin
       Writeln(arquivo);
@@ -166,6 +171,11 @@ begin
       Writeln(arquivo);
     end;
 
+    Writeln(arquivo);
+    Write(arquivo, FormataStringDelete(NomeTabela, pkTabela.NomeColunaPk, pkTabela.TipoPk));
+    Writeln(arquivo);
+
+    Write(arquivo, FormataMetodosSets(NomeTabela));
     Write(arquivo, 'end.');
     CloseFile(arquivo);
 
@@ -177,7 +187,7 @@ end;
 
 function TManipuladorClasse.FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
 begin
-  Result := 'function ' + FNomeClasse +'.Pesquisar(' + NomePk + ': ' + RetornaTipoCampo(TipoPk) + ');' + #13
+  Result := 'function ' + FNomeClasse +'.Pesquisar(' + NomePk + ': ' + RetornaTipoCampo(TipoPk) + '): Boolean;' + #13
             + 'const'  + #13
             + '   '
             + ' SQL = ' + #13
@@ -239,6 +249,73 @@ begin
   Result := Result + FormataParametros(NomeTabela);
 end;
 
+function TManipuladorClasse.FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
+begin
+  Result := 'procedure ' + FNomeClasse + '.' + 'Excluir' + ';' + #13
+            + 'const'  + #13
+            + '   '
+            + 'SQL = '  + #13
+            + '   '
+            + '''' + 'DELETE ' + '''' + ' +' + #13
+            + '   '
+            + '''' + ' FROM ' + '''' + ' +' + #13
+            + '   '
+            + '''' + NomeTabela +  '''' + ' +' + #13
+            + '   '
+            + '''' + ' WHERE ' +  '''' + ' +' + #13
+            + '   '
+            + '''' + Pk + ' = :' + Pk + '''' + ';';
+
+  Result := Result + #13;
+  Result := Result + 'var' + #13;
+  Result := Result + '  query: TFDquery;' + #13;
+  Result := Result + 'begin' + #13;
+  Result := Result + '  query := TFDquery.Create(nil);' + #13;
+  Result := Result + '  query.Connection := dm.conexaoBanco;' + #13;
+  Result := Result + '  query.Connection.StartTransaction;' + #13;
+  Result := Result + '  query.SQL.Add(SQL);' + #13;
+  Result := Result + '  try' + #13;
+  Result := Result + '    try' + #13;
+  Result := Result + '      query.ParamByName(' + Pk + ').' + RetornaTipoCampoParametros(TipoPk) + ' := ' + 'F' + Pk + ';' + #13;
+  Result := Result + '      query.ExecSQL;' + #13;
+  Result := Result + '      query.Connection.Commit;' + #13;
+  Result := Result + '    except' + #13;
+  Result := Result + '    on E:exception do' + #13;
+  Result := Result + '      begin' + #13;
+  Result := Result + '        query.Connection.Rollback;' + #13;
+  Result := Result + '        raise Exception.Create(''Erro ao excluir os dados na tabela ' + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
+  Result := Result + '      end;' + #13;
+  Result := Result + '    end;' + #13;
+  Result := Result + '  finally' + #13;
+  Result := Result + '    query.Connection.Rollback;' + #13;
+  Result := Result + '    qry.Free;' + #13;
+  Result := Result + '  end;' + #13;
+  Result := Result + 'end;' + #13;
+end;
+
+function TManipuladorClasse.FormataMetodosSets(NomeTabela: string): string;
+var
+  colunasTabela: TArray<TColunasTabela>;
+  dados: TCarregaInformacoesBanco;
+begin
+  dados := TCarregaInformacoesBanco.Create;
+
+  try
+    colunasTabela := dados.GetColunasTabela(NomeTabela);
+
+    for var colunas in colunasTabela do
+    begin
+      Result := Result + 'procedure Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');' + #13;
+      Result := Result + 'begin' + #13;
+      Result := Result + '  F' + colunas.NomeColuna + ' := Value;' +  #13;
+      Result := Result + 'end;' + #13;
+      Result := Result + #13;
+    end;
+  finally
+    dados.Free;
+  end;
+end;
+
 function TManipuladorClasse.FormataParametros(NomeTabela: string): string;
 var
   colunasTabela: TArray<TColunasTabela>;
@@ -251,7 +328,7 @@ begin
   Result := Result + 'begin' + #13;
   Result := Result + '  query := TFDquery.Create(nil);' + #13;
   Result := Result + '  query.Connection := dm.conexaoBanco;' + #13;
-  Result := Result + '  dm.conexaoBanco.StartTransaction;' + #13;
+  Result := Result + '  query.Connection.StartTransaction;' + #13;
   Result := Result + '  query.SQL.Add(SQL);' + #13;
   Result := Result + '  try' + #13;
   Result := Result + '    try' + #13;
@@ -263,16 +340,16 @@ begin
   end;
 
   Result := Result + '      query.ExecSQL;' + #13;
-  Result := Result + '      dm.conexaoBanco.Commit;' + #13;
+  Result := Result + '      query.Connection.Commit;' + #13;
   Result := Result + '    except' + #13;
   Result := Result + '    on E:exception do' + #13;
   Result := Result + '      begin' + #13;
-  Result := Result + '        dm.conexaoBanco.Rollback;' + #13;
+  Result := Result + '        query.Connection.Rollback;' + #13;
   Result := Result + '        raise Exception.Create(''Erro ao gravar os dados na tabela ' + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
   Result := Result + '      end;' + #13;
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
-  Result := Result + '    dm.conexaoBanco.Rollback;' + #13;
+  Result := Result + '    query.Connection.Rollback;' + #13;
   Result := Result + '    qry.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;' + #13;
@@ -309,7 +386,12 @@ end;
 
 procedure TManipuladorClasse.GerarClasse(NomeTabela: string);
 begin
-  CriaClasse(NomeTabela);
+  try
+    CriaClasse(NomeTabela);
+  except
+    on e: exception do
+      raise Exception.Create(e.message);
+  end;
 end;
 
 destructor TManipuladorClasse.Destroy;
