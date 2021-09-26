@@ -28,6 +28,7 @@ type
     procedure ConectarBanco;
     procedure CarregaTabelas;
     procedure SetDadosBanco(const Value: TCarregaInformacoesBanco);
+    procedure GerarClasse;
   public
     { Public declarations }
     property DadosBanco: TCarregaInformacoesBanco read FDadosBanco write SetDadosBanco;
@@ -50,20 +51,10 @@ begin
 end;
 
 procedure TfrmPrincipal.btnGerarClasseClick(Sender: TObject);
-var
-  geraClasse: TManipuladorClasse;
-  dadosTabela: TDictionary<string, string>;
 begin
-  geraClasse := TManipuladorClasse.Create(edtDiretorio.Text);
-  dadosTabela := TDictionary<string, string>.Create;
-
-  try
-    dadosTabela := FDadosBanco.CarregaDadosTabela(cbTabelas.Text);
-    geraClasse.CriaClasse(cbTabelas.Text, dadosTabela);
-  finally
-    geraClasse.Free;
-    dadosTabela.Free;
-  end;
+  if cbTabelas.Items.Count <= 0 then
+    raise Exception.Create('Conecte ao banco e selecione uma tabela!');
+  GerarClasse;
 end;
 
 procedure TfrmPrincipal.CarregaTabelas;
@@ -105,6 +96,19 @@ end;
 procedure TfrmPrincipal.FormDestroy(Sender: TObject);
 begin
   FDadosBanco.Free;
+end;
+
+procedure TfrmPrincipal.GerarClasse;
+var
+  geraClasse: TManipuladorClasse;
+begin
+  geraClasse := TManipuladorClasse.Create(edtDiretorio.Text);
+
+  try
+    geraClasse.GerarClasse(cbTabelas.Text);
+  finally
+    geraClasse.Free;
+  end;
 end;
 
 procedure TfrmPrincipal.SetDadosBanco(const Value: TCarregaInformacoesBanco);

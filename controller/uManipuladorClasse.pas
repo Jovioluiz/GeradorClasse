@@ -9,15 +9,18 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
   private
     FCaminho: String;
     FNomeClasse: String;
-    function RetornaMaiuscula(vStr: String): string;
+    function RetornaMaiuscula(Str: String): string;
     function RetornaTipoCampo(NomeTipoCampo: string): String;
     function RetornaTipoCampoParametros(NomeTipoCampo: string): String;
     function FormataStringUpdate(NomeTabela, Pk: string): string;
     function FormataParametros(NomeTabela: string): string;
+    function FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
+    function FormataParametrosPesquisar(NomeTabela, NomePk: string): string;
 
   public
-    procedure CriaClasse(NomeTabela: string; DadosTabela: TDictionary<string, string>);
+    procedure CriaClasse(NomeTabela: string);
     function FormataStringInsert(NomeTabela: string): string;
+    procedure GerarClasse(NomeTabela: string);
     constructor Create(Caminho: string);
     destructor Destroy; override;
 end;
@@ -34,7 +37,7 @@ begin
   FCaminho := Caminho;
 end;
 
-procedure TManipuladorClasse.CriaClasse(NomeTabela: string; DadosTabela: TDictionary<string, string>);
+procedure TManipuladorClasse.CriaClasse(NomeTabela: string);
 var
   arquivo: TextFile;
   nomeArquivo,
@@ -44,12 +47,13 @@ var
   pkTabela: TDadosPkTabela;
   dados: TCarregaInformacoesBanco;
   FNomeMetodosPublicos: TList<string>;
+  DadosTabela: TArray<TColunasTabela>;
 begin
   dados := TCarregaInformacoesBanco.Create;
   FNomeMetodosPublicos := TList<string>.Create;
 
   try
-
+    DadosTabela := dados.GetColunasTabela(NomeTabela);
     nome := RetornaMaiuscula(NomeTabela);
     nomeArquivo := FCaminho + '\' + 'u' + nome + '.pas';
     FNomeClasse := 'T' + nome;
@@ -65,6 +69,11 @@ begin
     Writeln(arquivo);
     Write(arquivo, 'uses');
     Writeln(arquivo);
+    Write(arquivo, ' FireDAC.Stan.Intf, FireDAC.Stan.Option, ' + #13 +
+                   ' FireDAC.Stan.Error, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.Phys.Intf,   ' + #13 +
+                   ' FireDAC.DApt.Intf, FireDAC.Stan.Async, FireDAC.Comp.Client, FireDAC.DApt,  ' + #13 +
+                   ' FireDAC.Comp.DataSet, Data.DB;');
+    Writeln(arquivo);
     Writeln(arquivo);
     Write(arquivo, 'type ' + FNomeClasse + ' = class ');
     Writeln(arquivo);
@@ -77,8 +86,7 @@ begin
     for var colunas in DadosTabela do
     begin
       Write(arquivo, '    ');
-      Write(arquivo, 'F' + colunas.Key + ': ' + RetornaTipoCampo(colunas.Value) + ';');
-
+      Write(arquivo, 'F' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ';');
       Writeln(arquivo);
     end;
 
@@ -86,7 +94,7 @@ begin
     for var colunas in DadosTabela do
     begin
       Write(arquivo, '    ');
-      Write(arquivo, 'Set' + colunas.Key + '(' + 'const Value: ' + RetornaTipoCampo(colunas.Value) + ');');
+      Write(arquivo, 'procedure Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');');
       Writeln(arquivo);
     end;
 
@@ -98,6 +106,8 @@ begin
     //método pesquisar pela pk
     if pkTabela.NomeColunaPk <> '' then
     begin
+      Write(arquivo, '   //Metodo Pesquisar pela chave primaria');
+      Writeln(arquivo);
       Write(arquivo, '    ');
       Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + ');');
       FNomeMetodosPublicos.Add('Pesquisar');
@@ -122,7 +132,7 @@ begin
     for var colunas in DadosTabela do
     begin
       Write(arquivo, '    ');
-      Write(arquivo, 'property ' + colunas.Key + ': ' + RetornaTipoCampo(colunas.Value) + ' read ' + 'F' + colunas.Key + ' write ' + 'Set' + colunas.Key + ';');
+      Write(arquivo, 'property ' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ' read ' + 'F' + colunas.NomeColuna + ' write ' + 'Set' + colunas.typeColuna + ';');
       Writeln(arquivo);
     end;
 
@@ -136,7 +146,7 @@ begin
     Write(arquivo, 'uses');
     Writeln(arquivo);
     Write(arquivo, '    ');
-    Write(arquivo, 'System.SysUtils, Vcl.Dialogs;');
+    Write(arquivo, 'uDataModule, System.SysUtils, Vcl.Dialogs;');
     Writeln(arquivo);
     Writeln(arquivo);
     Write(arquivo, '{ ' + FNomeClasse + ' }');
@@ -148,12 +158,53 @@ begin
     Writeln(arquivo);
     update := FormataStringUpdate(NomeTabela, pkTabela.NomeColunaPk);
     Write(arquivo, update);
+
+    if pkTabela.NomeColunaPk <> '' then
+    begin
+      Writeln(arquivo);
+      Write(arquivo, FormataStringPesquisar(NomeTabela, pkTabela.NomeColunaPk, pkTabela.TipoPk));
+      Writeln(arquivo);
+    end;
+
+    Write(arquivo, 'end.');
     CloseFile(arquivo);
 
   finally
     dados.Free;
     FNomeMetodosPublicos.Free;
   end;
+end;
+
+function TManipuladorClasse.FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
+begin
+  Result := 'function ' + FNomeClasse +'.Pesquisar(' + NomePk + ': ' + RetornaTipoCampo(TipoPk) + ');' + #13
+            + 'const'  + #13
+            + '   '
+            + ' SQL = ' + #13
+            + '   ' + '''' + 'SELECT * ' + '''' + ' +' + #13
+            + '   ' + '''' + ' FROM ' + '''' + ' +' + #13
+            + '   ' + '''' + NomeTabela + '''' + ' +' + #13
+            + '   ' + '''' + ' WHERE ' + '''' + ' +' + #13
+            + '   ' + '''' + NomePk + ' = ' + ':' + NomePk + '''' + ';';
+
+  Result := Result + FormataParametrosPesquisar(NomeTabela, NomePk);
+end;
+
+function TManipuladorClasse.FormataParametrosPesquisar(NomeTabela, NomePk: string): string;
+begin
+  Result := #13;
+  Result := Result + 'var' + #13;
+  Result := Result + '  query: TFDquery;' + #13;
+  Result := Result + 'begin' + #13;
+  Result := Result + '  query := TFDquery.Create(nil);' + #13;
+  Result := Result + '  query.Connection := dm.conexaoBanco;' + #13 + #13;
+  Result := Result + '  try' + #13;
+  Result := Result + '    query.Open(SQL, [' + NomePk + ']);' + #13;
+  Result := Result + '    Result := not query.IsEmpty;' + #13;
+  Result := Result + '  finally' + #13;
+  Result := Result + '    qry.Free;' + #13;
+  Result := Result + '  end;' + #13;
+  Result := Result + 'end;';
 end;
 
 function TManipuladorClasse.FormataStringInsert(NomeTabela: string): string;
@@ -165,7 +216,7 @@ begin
             + '   '
             + 'SQL = '  + #13
             + '   '
-            + '''' + 'insert into ' + '''' + ' +'  + #13
+            + '''' + 'INSERT INTO ' + '''' + ' +'  + #13
             + '   '
             + '''' + NomeTabela + '(' + '''' + ' +' + #13;
 
@@ -177,7 +228,7 @@ begin
     Result := Result + '''' + ifthen(I = High(colunasTabela), colunasTabela[I].NomeColuna + ')', colunasTabela[I].NomeColuna + ', ')  + '''' + ' +' + #13
   end;
 
-  Result := Result + '   ' + '''' + 'values ' + '(' + '''' + ' +';
+  Result := Result + '   ' + '''' + 'VALUES ' + '(' + '''' + ' +';
   for var I := 0 to Length(colunasTabela) - 1 do
   begin
     Result := Result + '' + '' + '' + #13;
@@ -237,10 +288,10 @@ begin
             + '   '
             + 'SQL = '  + #13
             + '   '
-            + '''' + 'update ' + '''' + ' +'  + #13
+            + '''' + 'UPDATE ' + '''' + ' +'  + #13
             + '   '
             + '''' + NomeTabela + '''' + ' +' + #13
-            + '''' + 'set ' + '''' + ' +' + #13;
+            + '''' + 'SET ' + '''' + ' +' + #13;
 
   colunasTabela := GetColunasTabela(NomeTabela);
 
@@ -250,10 +301,15 @@ begin
     Result := Result + '''' + colunasTabela[I].NomeColuna + ' = ' + ':' + colunasTabela[I].NomeColuna + '''' + ' +' + #13;
   end;
 
-  Result := Result + '''' + 'where ' + '''' + ' +' + #13;
+  Result := Result + '''' + 'WHERE ' + '''' + ' +' + #13;
   Result := Result + '''' + Pk + ' = :' + Pk + '''' + ';' + #13;
 
   Result := Result + FormataParametros(NomeTabela);
+end;
+
+procedure TManipuladorClasse.GerarClasse(NomeTabela: string);
+begin
+  CriaClasse(NomeTabela);
 end;
 
 destructor TManipuladorClasse.Destroy;
@@ -262,10 +318,10 @@ begin
   inherited;
 end;
 
-function TManipuladorClasse.RetornaMaiuscula(vStr: String): string;
+function TManipuladorClasse.RetornaMaiuscula(Str: String): string;
 begin
-  vStr := LowerCase(vStr);
-  Result := UpperCase(Copy(vStr, 1, 1)) + Copy(vStr, 2, length(vStr) -1);
+  Str := LowerCase(Str);
+  Result := UpperCase(Copy(Str, 1, 1)) + Copy(Str, 2, length(Str) -1);
 end;
 
 function TManipuladorClasse.RetornaTipoCampo(NomeTipoCampo: string): String;

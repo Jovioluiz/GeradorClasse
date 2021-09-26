@@ -17,15 +17,16 @@ type TCarregaInformacoesBanco = class
     typeColuna: string;
   end;
 
+  type TTabelasBanco = record
+    NomeTabela: string;
+  end;
+
     private
       FListaTabelas: TList<string>;
-      FDadosTabelas: TDictionary<string, string>;
       procedure SetListaTabelas(const Value: TList<string>);
-      procedure SetDadosTabelas(const Value: TDictionary<string, string>);
 
     public
       function CarregaTabelas: TList<String>;
-      function CarregaDadosTabela(Tabela: string): TDictionary<string, string>;
       function GetPKTabela(NomeTabela: string): TDadosPkTabela;
       function GetColunasTabela(NomeTabela: string): TArray<TColunasTabela>;
 
@@ -33,7 +34,6 @@ type TCarregaInformacoesBanco = class
       destructor Destroy; override;
 
       property ListaTabelas: TList<string> read FListaTabelas write SetListaTabelas;
-      property DadosTabelas: TDictionary<string, string> read FDadosTabelas write SetDadosTabelas;
   end;
 
 implementation
@@ -42,43 +42,6 @@ uses
   FireDAC.Comp.Client, uDataModule, System.SysUtils;
 
 { TCarregaInformacoesBanco }
-
-function TCarregaInformacoesBanco.CarregaDadosTabela(Tabela: string): TDictionary<string, string>;
-const
-  SQL = '  SELECT ' +
-        '  	attname AS coluna, ' +
-        '  	format_type(atttypid, atttypmod) AS tipo ' +
-        '  FROM ' +
-        '  	pg_class c ' +
-        '  JOIN pg_attribute a ' +
-        '      ON c.oid = a.attrelid ' +
-        '  WHERE ' +
-        '  	attnum > 0 ' +
-        '  	AND relname = :tabela ' +
-        '   ORDER BY coluna ';
-var
-  query: TFDQuery;
-begin
-  query := TFDQuery.Create(nil);
-  query.Connection := dm.conexaoBanco;
-
-  try
-    query.Open(SQL, [Tabela]);
-
-    query.First;
-    while not query.Eof do
-    begin
-      if not FDadosTabelas.ContainsKey(query.FieldByName('coluna').AsString) then
-        FDadosTabelas.Add(query.FieldByName('coluna').AsString, query.FieldByName('tipo').AsString);
-      query.Next;
-    end;
-
-    Result := FDadosTabelas;
-
-  finally
-    query.Free;
-  end;
-end;
 
 function TCarregaInformacoesBanco.CarregaTabelas: TList<String>;
 const
@@ -117,14 +80,11 @@ end;
 constructor TCarregaInformacoesBanco.Create;
 begin
   FListaTabelas := TList<string>.Create;
-  FDadosTabelas := TDictionary<string, string>.Create;
 end;
 
 destructor TCarregaInformacoesBanco.Destroy;
 begin
-//  if FListaTabelas <> nil then
-//    FListaTabelas.Free;
-//  FDadosTabelas.Free;
+//  FListaTabelas.Free;
   inherited;
 end;
 
@@ -200,11 +160,6 @@ begin
   finally
     query.Free;
   end;
-end;
-
-procedure TCarregaInformacoesBanco.SetDadosTabelas(const Value: TDictionary<string, string>);
-begin
-  FDadosTabelas := Value;
 end;
 
 procedure TCarregaInformacoesBanco.SetListaTabelas(const Value: TList<string>);
