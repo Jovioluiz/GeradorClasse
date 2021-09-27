@@ -15,7 +15,7 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     function FormataStringUpdate(NomeTabela, Pk: string): string;
     function FormataParametros(NomeTabela: string): string;
     function FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
-    function FormataParametrosPesquisar(NomeTabela, NomePk: string): string;
+    function FormataParametrosPesquisar(NomePk: string): string;
     function FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
     function FormataMetodosSets(NomeTabela: string): string;
   public
@@ -43,18 +43,18 @@ var
   arquivo: TextFile;
   nomeArquivo,
   nome,
-  insert,
-  update: string;
+  s: string;
   pkTabela: TDadosPkTabela;
+  uniqueTabela: TArray<TDadosPkUniqueTabela>;
   dados: TCarregaInformacoesBanco;
   FNomeMetodosPublicos: TList<string>;
-  DadosTabela: TArray<TColunasTabela>;
+  dadosTabela: TArray<TColunasTabela>;
 begin
   dados := TCarregaInformacoesBanco.Create;
   FNomeMetodosPublicos := TList<string>.Create;
 
   try
-    DadosTabela := dados.GetColunasTabela(NomeTabela);
+    dadosTabela := dados.GetColunasTabela(NomeTabela);
     nome := RetornaMaiuscula(NomeTabela);
     nomeArquivo := FCaminho + '\' + 'u' + nome + '.pas';
     FNomeClasse := 'T' + nome;
@@ -84,7 +84,7 @@ begin
     Writeln(arquivo);
 
     //monta os fields
-    for var colunas in DadosTabela do
+    for var colunas in dadosTabela do
     begin
       Write(arquivo, '    ');
       Write(arquivo, 'F' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ';');
@@ -92,7 +92,7 @@ begin
     end;
 
     //métodos Sets
-    for var colunas in DadosTabela do
+    for var colunas in dadosTabela do
     begin
       Write(arquivo, '    ');
       Write(arquivo, 'procedure Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');');
@@ -100,18 +100,41 @@ begin
     end;
 
     pkTabela := dados.GetPKTabela(NomeTabela);
-
+    uniqueTabela := dados.GetUniqueTabelas(NomeTabela);
     Write(arquivo, '  public ');
     Writeln(arquivo);
 
     //método pesquisar pela pk
+    if (pkTabela.NomeColunaPk = '') and (not Assigned(uniqueTabela)) then
+      raise Exception.Create('A tabela ' + NomeTabela + ' não possui PK. Verifique.');
+      
     if pkTabela.NomeColunaPk <> '' then
     begin
       Write(arquivo, '   //Metodo Pesquisar pela chave primaria');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + ');');
+      Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + ');' + ifthen(Assigned(uniqueTabela), ' overload;', ''));
       FNomeMetodosPublicos.Add('Pesquisar');
+    end;
+    
+    if Assigned(uniqueTabela) then
+    begin
+      Writeln(arquivo);
+      Write(arquivo, '   //Metodo Pesquisar pelas unique');
+      Writeln(arquivo);
+      Write(arquivo, '    ');
+      var str := 'function Pesquisar(' ;
+      var primeiro := uniqueTabela[0].TipoUnique;
+      for var I := 0 to Length(uniqueTabela) - 1 do
+      begin
+        s := s + uniqueTabela[I].NomeColunaUnique + ': ' + ifthen(I = High(uniqueTabela), RetornaTipoCampo(uniqueTabela[I].TipoUnique) + ');', 
+                                                                                          RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '; ');
+        primeiro := uniqueTabela[I].TipoUnique;
+      end;
+      if pkTabela.NomeColunaPk <> '' then
+        s := s + ' overload;';
+        
+      Write(arquivo, str + s);
     end;
 
     Writeln(arquivo);
@@ -130,7 +153,7 @@ begin
     Writeln(arquivo);
 
     //monta as property
-    for var colunas in DadosTabela do
+    for var colunas in dadosTabela do
     begin
       Write(arquivo, '    ');
       Write(arquivo, 'property ' + colunas.NomeColuna + ': ' + RetornaTipoCampo(colunas.typeColuna) + ' read '
@@ -156,12 +179,10 @@ begin
     Writeln(arquivo);
 
     //metodo insert
-    insert := FormataStringInsert(NomeTabela);
-    Write(arquivo, insert);
+    Write(arquivo, FormataStringInsert(NomeTabela));
     Writeln(arquivo);
     //metodo update
-    update := FormataStringUpdate(NomeTabela, pkTabela.NomeColunaPk);
-    Write(arquivo, update);
+    Write(arquivo, FormataStringUpdate(NomeTabela, pkTabela.NomeColunaPk));
 
     //metodo pesquisar pela pk
     if pkTabela.NomeColunaPk <> '' then
@@ -197,10 +218,10 @@ begin
             + '   ' + '''' + ' WHERE ' + '''' + ' +' + #13
             + '   ' + '''' + NomePk + ' = ' + ':' + NomePk + '''' + ';';
 
-  Result := Result + FormataParametrosPesquisar(NomeTabela, NomePk);
+  Result := Result + FormataParametrosPesquisar(NomePk);
 end;
 
-function TManipuladorClasse.FormataParametrosPesquisar(NomeTabela, NomePk: string): string;
+function TManipuladorClasse.FormataParametrosPesquisar(NomePk: string): string;
 begin
   Result := #13;
   Result := Result + 'var' + #13;

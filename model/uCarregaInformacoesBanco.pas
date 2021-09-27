@@ -21,6 +21,11 @@ type TCarregaInformacoesBanco = class
     NomeTabela: string;
   end;
 
+  type TDadosPkUniqueTabela = record
+    NomeColunaUnique,
+    TipoUnique: string;
+  end;
+
     private
       FListaTabelas: TList<string>;
       procedure SetListaTabelas(const Value: TList<string>);
@@ -29,6 +34,7 @@ type TCarregaInformacoesBanco = class
       function CarregaTabelas: TList<String>;
       function GetPKTabela(NomeTabela: string): TDadosPkTabela;
       function GetColunasTabela(NomeTabela: string): TArray<TColunasTabela>;
+      function GetUniqueTabelas(NomeTabela: string): TArray<TDadosPkUniqueTabela>;
 
       constructor Create;
       destructor Destroy; override;
@@ -156,6 +162,52 @@ begin
 
     Result.NomeColunaPk := query.FieldByName('column_name').AsString;
     Result.TipoPk := query.FieldByName('tipo_pk').AsString;
+
+  finally
+    query.Free;
+  end;
+end;
+
+function TCarregaInformacoesBanco.GetUniqueTabelas(NomeTabela: string): TArray<TDadosPkUniqueTabela>;
+const
+  SQL = ' SELECT   ' +
+        ' 	kcu.column_name, ' +
+        ' 	a.tipo ' +
+        ' FROM ' +
+        ' 	information_schema.table_constraints AS tc ' +
+        ' JOIN information_schema.key_column_usage AS kcu ' +
+        '      ON tc.constraint_name = kcu.constraint_name ' +
+        ' JOIN ( ' +
+        '     	SELECT  ' +
+        '     		column_name, ' +
+        '     		data_type AS tipo, ' +
+        '     		table_name ' +
+        '     	FROM ' +
+        '     		INFORMATION_SCHEMA.COLUMNS ' +
+        '     	WHERE ' +
+        '     		table_name = :nome_tabela) a ON	a.table_name = tc.table_name ' +
+        ' 		    AND kcu.column_name = a.column_name ' +
+        ' WHERE ' +
+        ' 	constraint_type = ''UNIQUE'' ' +
+        ' 	AND tc.table_name = :nome_tabela ORDER BY a.tipo';
+var
+  query: TFDQuery;
+begin
+  query := TFDQuery.Create(nil);
+  query.Connection := dm.conexaoBanco;
+
+  try
+    query.Open(SQL, [NomeTabela]);
+
+    SetLength(Result, query.RecordCount);
+
+    query.First;
+    for var I := 0 to Length(Result) - 1 do
+    begin
+      Result[I].NomeColunaUnique := query.FieldByName('column_name').AsString;
+      Result[I].TipoUnique := query.FieldByName('tipo').AsString;
+      query.Next;
+    end;
 
   finally
     query.Free;
