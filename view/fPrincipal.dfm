@@ -4,8 +4,8 @@ object frmPrincipal: TfrmPrincipal
   BorderIcons = [biSystemMenu, biMinimize]
   BorderStyle = bsSingle
   Caption = 'Gerar Classe'
-  ClientHeight = 184
-  ClientWidth = 555
+  ClientHeight = 225
+  ClientWidth = 649
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -39,7 +39,7 @@ object frmPrincipal: TfrmPrincipal
     OnClick = SpeedButton1Click
   end
   object btnConectarBanco: TButton
-    Left = 383
+    Left = 496
     Top = 43
     Width = 105
     Height = 25
@@ -55,9 +55,9 @@ object frmPrincipal: TfrmPrincipal
     TabOrder = 1
   end
   object btnGerarClasse: TButton
-    Left = 72
-    Top = 136
-    Width = 75
+    Left = 496
+    Top = 94
+    Width = 105
     Height = 25
     Caption = 'Gerar Classe'
     TabOrder = 2
@@ -72,6 +72,7 @@ object frmPrincipal: TfrmPrincipal
     Text = 'C:\Users\jovio\Desktop\Delphi'
   end
   object dialog: TOpenDialog
-    Left = 512
+    Left = 416
+    Top = 8
   end
 end

@@ -28,7 +28,7 @@ type
     procedure btnSalvarClick(Sender: TObject);
   private
     { Private declarations }
-    arquivoIni: TIniFile;
+    FArquivoIni: TIniFile;
     procedure Salvar;
   public
     { Public declarations }
@@ -78,18 +78,18 @@ end;
 
 procedure TfrmConexao.FormCreate(Sender: TObject);
 begin
-  arquivoIni := TIniFile.Create(GetCurrentDir + '\conexao\conexao.ini');
+  FArquivoIni := TIniFile.Create(GetCurrentDir + '\conexao\conexao.ini');
 
-  edtServidor.Text := arquivoIni.ReadString('configuracoes', 'servidor', '');
-  edtBanco.Text := arquivoIni.ReadString('configuracoes', 'banco', '');
-  edtPorta.Text := arquivoIni.ReadString('configuracoes', 'porta', '');
-  edtUsuario.Text := arquivoIni.ReadString('configuracoes', 'usuario', '');
-  EdtSenha.Text := arquivoIni.ReadString('configuracoes', 'senha', '');
+  edtServidor.Text := FArquivoIni.ReadString('configuracoes', 'servidor', '');
+  edtBanco.Text := FArquivoIni.ReadString('configuracoes', 'banco', '');
+  edtPorta.Text := FArquivoIni.ReadString('configuracoes', 'porta', '');
+  edtUsuario.Text := FArquivoIni.ReadString('configuracoes', 'usuario', '');
+  EdtSenha.Text := FArquivoIni.ReadString('configuracoes', 'senha', '');
 end;
 
 procedure TfrmConexao.FormDestroy(Sender: TObject);
 begin
-  arquivoIni.Free;
+  FArquivoIni.Free;
 end;
 
 procedure TfrmConexao.FormKeyPress(Sender: TObject; var Key: Char);
@@ -103,11 +103,11 @@ end;
 
 procedure TfrmConexao.Salvar;
 begin
-  arquivoIni.WriteString('configuracoes', 'servidor', edtServidor.Text);
-  arquivoIni.WriteString('configuracoes', 'banco', edtBanco.Text);
-  arquivoIni.WriteString('configuracoes', 'porta', edtPorta.Text);
-  arquivoIni.WriteString('configuracoes', 'usuario', edtUsuario.Text);
-  arquivoIni.WriteString('configuracoes', 'senha', edtSenha.Text);
+  FArquivoIni.WriteString('configuracoes', 'servidor', edtServidor.Text);
+  FArquivoIni.WriteString('configuracoes', 'banco', edtBanco.Text);
+  FArquivoIni.WriteString('configuracoes', 'porta', edtPorta.Text);
+  FArquivoIni.WriteString('configuracoes', 'usuario', edtUsuario.Text);
+  FArquivoIni.WriteString('configuracoes', 'senha', edtSenha.Text);
   memo.Clear;
   memo.Lines.Add('Salvo!');
   btnSalvar.Enabled := False;
