@@ -74,7 +74,7 @@ begin
       AssignFile(arquivo, nomeArquivo);
       Rewrite(arquivo);
 
-      Write(arquivo, 'unit ' + 'u' + nome + ';');
+      Write(arquivo, 'unit ' + 'ucl' + nome + ';');
       Writeln(arquivo);
       Writeln(arquivo);
       Write(arquivo, 'interface');
@@ -125,7 +125,7 @@ begin
         Write(arquivo, '   //Metodo Pesquisar pela chave primaria');
         Writeln(arquivo);
         Write(arquivo, '    ');
-        Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + ');' + ifthen(Assigned(uniqueTabela), ' overload;', ''));
+        Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + '): Boolean; ' + ifthen(Assigned(uniqueTabela), ' overload;', ''));
         FNomeMetodosPublicos.Add('Pesquisar');
       end;
     
@@ -139,7 +139,7 @@ begin
         var primeiro := uniqueTabela[0].TipoUnique;
         for var I := 0 to Length(uniqueTabela) - 1 do
         begin
-          s := s + uniqueTabela[I].NomeColunaUnique + ': ' + ifthen(I = High(uniqueTabela), RetornaTipoCampo(uniqueTabela[I].TipoUnique) + ');',
+          s := s + uniqueTabela[I].NomeColunaUnique + ': ' + ifthen(I = High(uniqueTabela), RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '): Boolean; ',
                                                                                             RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '; ');
           primeiro := uniqueTabela[I].TipoUnique;
         end;
@@ -280,7 +280,7 @@ begin
   Result := Result + str + #13;
   Result := Result + '    Result := not query.IsEmpty;' + #13;
   Result := Result + '  finally' + #13;
-  Result := Result + '    qry.Free;' + #13;
+  Result := Result + '    query.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;';
 end;
@@ -376,7 +376,7 @@ begin
   Result := Result + '  query.SQL.Add(SQL);' + #13;
   Result := Result + '  try' + #13;
   Result := Result + '    try' + #13;
-  Result := Result + '      query.ParamByName(' + Pk + ').' + RetornaTipoCampoParametros(TipoPk) + ' := ' + 'F' + Pk + ';' + #13;
+  Result := Result + '      query.ParamByName(''' + Pk + ''').' + RetornaTipoCampoParametros(TipoPk) + ' := ' + 'F' + Pk + ';' + #13;
   Result := Result + '      query.ExecSQL;' + #13;
   Result := Result + '      query.Connection.Commit;' + #13;
   Result := Result + '    except' + #13;
@@ -388,7 +388,7 @@ begin
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
   Result := Result + '    query.Connection.Rollback;' + #13;
-  Result := Result + '    qry.Free;' + #13;
+  Result := Result + '    query.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;' + #13;
 end;
@@ -405,7 +405,7 @@ begin
 
     for var colunas in colunasTabela do
     begin
-      Result := Result + 'procedure Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');' + #13;
+      Result := Result + 'procedure ' + FNomeClasse + '.Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');' + #13;
       Result := Result + 'begin' + #13;
       Result := Result + '  F' + colunas.NomeColuna + ' := Value;' +  #13;
       Result := Result + 'end;' + #13;
@@ -450,7 +450,7 @@ begin
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
   Result := Result + '    query.Connection.Rollback;' + #13;
-  Result := Result + '    qry.Free;' + #13;
+  Result := Result + '    query.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;' + #13;
 
