@@ -67,3 +67,7 @@ __recovery/
 
 # Boss dependency manager vendor folder https://github.com/HashLoad/boss
 modules/
+Win32/Debug/lib/pgenlist.pdb
+Win32/Debug/lib/pgenlista.pdb
+Win32/Debug/lib/psqlodbc30a.pdb
+Win32/Debug/lib/psqlodbc35w.pdb
