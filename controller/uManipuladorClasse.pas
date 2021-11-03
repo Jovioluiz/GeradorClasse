@@ -26,6 +26,7 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     function FormataParametrosPesquisar(NomeTabela, NomePk: string; EhPK: Boolean): string;
     function FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
     function FormataMetodosSets(NomeTabela: string): string;
+    function FormataStringPersistir: string;
     procedure SetManipuladorInfo(const Value: TCarregaInformacoesBanco);
   public
     procedure CriaClasse(NomeTabela: string);
@@ -162,6 +163,10 @@ begin
       Write(arquivo, 'procedure Excluir;');
       FNomeMetodosPublicos.Add('Excluir');
       Writeln(arquivo);
+      Write(arquivo, '    ');
+      Write(arquivo, 'procedure Persistir;');
+      FNomeMetodosPublicos.Add('Persistir');
+      Writeln(arquivo);
       Writeln(arquivo);
 
       //monta as property
@@ -218,6 +223,9 @@ begin
 
         Writeln(arquivo, FormataStringPesquisar(NomeTabela, dadosUnique));
       end;
+
+      Writeln(arquivo);
+      Writeln(arquivo, FormataStringPersistir);
 
       Writeln(arquivo);
       Write(arquivo, FormataStringDelete(NomeTabela, pkTabela.NomeColunaPk, pkTabela.TipoPk));
@@ -278,7 +286,7 @@ begin
   end;
 
   Result := Result + str + #13;
-  Result := Result + '    Result := not query.IsEmpty;' + #13;
+  Result := Result + '    Result := query.IsEmpty;' + #13;
   Result := Result + '  finally' + #13;
   Result := Result + '    query.Free;' + #13;
   Result := Result + '  end;' + #13;
@@ -315,6 +323,17 @@ begin
   end;
 
   Result := Result + FormataParametros(NomeTabela);
+end;
+
+function TManipuladorClasse.FormataStringPersistir: string;
+begin
+  Result := 'procedure ' + FNomeClasse + '.Persistir(Novo: Boolean);' + #13
+            + 'begin' + #13
+            + '  ' + 'if Novo then' + #13
+            + '    ' + 'Inserir' + #13
+            + '  ' + 'else ' + #13
+            + '    ' + 'Atualizar;' + #13
+            + 'end;';
 end;
 
 function TManipuladorClasse.FormataStringPesquisar(NomeTabela: string; DadosUnk: TArray<TDadosUnique>): string;
@@ -467,7 +486,7 @@ begin
             + '   '
             + '''' + 'UPDATE ' + '''' + ' +'  + #13
             + '   '
-            + '''' + NomeTabela + '''' + ' +' + #13
+            + '''' + NomeTabela + ' ' + '''' + ' +' + #13
             + '''' + 'SET ' + '''' + ' +' + #13;
 
   colunasTabela := GetColunasTabela(NomeTabela);
@@ -475,7 +494,11 @@ begin
   for var I := 0 to Length(colunasTabela) - 1 do
   begin
     Result := Result + '' + '' + '' + '   ';
-    Result := Result + '''' + colunasTabela[I].NomeColuna + ' = ' + ':' + colunasTabela[I].NomeColuna + '''' + ' +' + #13;
+    Result := Result + '''' + colunasTabela[I].NomeColuna
+                     + ' = '
+                     + ':'
+                     + colunasTabela[I].NomeColuna
+                     + ifthen(I = High(colunasTabela), ' ', ', ') + '''' + ' +' + #13;
   end;
 
   Result := Result + '''' + 'WHERE ' + '''' + ' +' + #13;  //ajustar quando possui unique key
