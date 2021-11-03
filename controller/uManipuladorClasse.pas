@@ -286,7 +286,7 @@ begin
   end;
 
   Result := Result + str + #13;
-  Result := Result + '    Result := query.IsEmpty;' + #13;
+  Result := Result + '    Result := not query.IsEmpty;' + #13;
   Result := Result + '  finally' + #13;
   Result := Result + '    query.Free;' + #13;
   Result := Result + '  end;' + #13;
