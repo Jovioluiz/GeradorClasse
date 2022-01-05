@@ -164,7 +164,7 @@ begin
       FNomeMetodosPublicos.Add('Excluir');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'procedure Persistir;');
+      Write(arquivo, 'procedure Persistir(Novo: Boolean);');
       FNomeMetodosPublicos.Add('Persistir');
       Writeln(arquivo);
       Writeln(arquivo);
