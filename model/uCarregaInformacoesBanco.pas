@@ -35,7 +35,7 @@ type TCarregaInformacoesBanco = class
       function GetPKTabela(NomeTabela: string): TDadosPkTabela;
       function GetColunasTabela(NomeTabela: string): TArray<TColunasTabela>;
       function GetUniqueTabelas(NomeTabela: string): TArray<TDadosPkUniqueTabela>;
-
+      function PossuiIdGeral(NomeTabela: string): Boolean;
       constructor Create;
       destructor Destroy; override;
 
@@ -211,6 +211,20 @@ begin
 
   finally
     query.Free;
+  end;
+end;
+
+function TCarregaInformacoesBanco.PossuiIdGeral(NomeTabela: string): Boolean;
+var
+  dadosTabela: TArray<TColunasTabela>;
+begin
+  dadosTabela := GetColunasTabela(NomeTabela);
+  Result := False;
+
+  for var campos in dadosTabela do
+  begin
+    if campos.NomeColuna = 'id_geral' then
+      Exit(True);
   end;
 end;
 

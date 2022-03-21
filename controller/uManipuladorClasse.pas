@@ -16,7 +16,6 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     FCaminho: String;
     FNomeClasse: String;
     FManipuladorInfo: TCarregaInformacoesBanco;
-    function RetornaMaiuscula(Str: String): string;
     function RetornaTipoCampo(NomeTipoCampo: string): String;
     function RetornaTipoCampoParametros(NomeTipoCampo: string): String;
     function FormataStringUpdate(NomeTabela, Pk: string): string;
@@ -26,8 +25,9 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     function FormataParametrosPesquisar(NomeTabela, NomePk: string; EhPK: Boolean): string;
     function FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
     function FormataMetodosSets(NomeTabela: string): string;
-    function FormataStringPersistir: string;
+    function FormataStringPersistir(NomeTabela: string): string;
     procedure SetManipuladorInfo(const Value: TCarregaInformacoesBanco);
+    function FormataStringFuncIdGeral(NomeClasse: string): string;
   public
     procedure CriaClasse(NomeTabela: string);
     function FormataStringInsert(NomeTabela: string): string;
@@ -55,8 +55,7 @@ procedure TManipuladorClasse.CriaClasse(NomeTabela: string);
 var
   arquivo: TextFile;
   nomeArquivo,
-  nome,
-  s: string;
+  parametrosPesquisarUk: string;
   pkTabela: TDadosPkTabela;
   uniqueTabela: TArray<TDadosPkUniqueTabela>;
   FNomeMetodosPublicos: TList<string>;
@@ -68,14 +67,13 @@ begin
     try
 
       dadosTabela := FManipuladorInfo.GetColunasTabela(NomeTabela);
-      nome := RetornaMaiuscula(NomeTabela);
-      nomeArquivo := FCaminho + '\ucl' + nome + '.pas';
-      FNomeClasse := 'T' + nome;
+      nomeArquivo := FCaminho + '\ucl' + NomeTabela.ToUpper + '.pas';
+      FNomeClasse := 'T' + NomeTabela.ToUpper;
 
       AssignFile(arquivo, nomeArquivo);
       Rewrite(arquivo);
 
-      Write(arquivo, 'unit ' + 'ucl' + nome + ';');
+      Write(arquivo, 'unit ' + 'ucl' + NomeTabela.ToUpper + ';');
       Writeln(arquivo);
       Writeln(arquivo);
       Write(arquivo, 'interface');
@@ -89,7 +87,7 @@ begin
                      ' FireDAC.Comp.DataSet, Data.DB;');
       Writeln(arquivo);
       Writeln(arquivo);
-      Write(arquivo, 'type ' + FNomeClasse + ' = class ');
+      Write(arquivo, 'type ' + FNomeClasse.ToUpper + ' = class ');
       Writeln(arquivo);
       Writeln(arquivo);
 
@@ -112,11 +110,14 @@ begin
         Writeln(arquivo);
       end;
 
-      pkTabela := FManipuladorInfo.GetPKTabela(NomeTabela);
-      uniqueTabela := FManipuladorInfo.GetUniqueTabelas(NomeTabela);
+      if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
+        Write(arquivo, '  function GetIdGeral: Int64;' + #13 );
+
       Write(arquivo, '  public ');
       Writeln(arquivo);
 
+      pkTabela := FManipuladorInfo.GetPKTabela(NomeTabela);
+      uniqueTabela := FManipuladorInfo.GetUniqueTabelas(NomeTabela);
       //método pesquisar pela pk
       if (pkTabela.NomeColunaPk = '') and (not Assigned(uniqueTabela)) then
         raise Exception.Create('A tabela ' + NomeTabela + ' não possui PK. Verifique.');
@@ -140,14 +141,16 @@ begin
         var primeiro := uniqueTabela[0].TipoUnique;
         for var I := 0 to Length(uniqueTabela) - 1 do
         begin
-          s := s + uniqueTabela[I].NomeColunaUnique + ': ' + ifthen(I = High(uniqueTabela), RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '): Boolean; ',
-                                                                                            RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '; ');
+          parametrosPesquisarUk := parametrosPesquisarUk + uniqueTabela[I].NomeColunaUnique
+                                   + ': ' + ifthen(I = High(uniqueTabela),
+                                   RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '): Boolean; ',
+                                   RetornaTipoCampo(uniqueTabela[I].TipoUnique) + '; ');
           primeiro := uniqueTabela[I].TipoUnique;
         end;
         if pkTabela.NomeColunaPk <> '' then
-          s := s + ' overload;';
+          parametrosPesquisarUk := parametrosPesquisarUk + ' overload;';
         
-        Write(arquivo, str + s);
+        Write(arquivo, str + parametrosPesquisarUk);
       end;
 
       Writeln(arquivo);
@@ -195,6 +198,8 @@ begin
       Writeln(arquivo);
       Writeln(arquivo);
 
+      if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
+        Write(arquivo, FormataStringFuncIdGeral(FNomeClasse));
       //metodo insert
       Write(arquivo, FormataStringInsert(NomeTabela));
       Writeln(arquivo);
@@ -225,7 +230,7 @@ begin
       end;
 
       Writeln(arquivo);
-      Writeln(arquivo, FormataStringPersistir);
+      Writeln(arquivo, FormataStringPersistir(NomeTabela));
 
       Writeln(arquivo);
       Write(arquivo, FormataStringDelete(NomeTabela, pkTabela.NomeColunaPk, pkTabela.TipoPk));
@@ -248,7 +253,7 @@ end;
 
 function TManipuladorClasse.FormataStringPesquisar(NomeTabela, NomePk, TipoPk: string): string;
 begin
-  Result := 'function ' + FNomeClasse +'.Pesquisar(' + NomePk + ': ' + RetornaTipoCampo(TipoPk) + '): Boolean;' + #13
+  Result := 'function ' + FNomeClasse.ToUpper +'.Pesquisar(' + NomePk + ': ' + RetornaTipoCampo(TipoPk) + '): Boolean;' + #13
             + 'const'  + #13
             + '   '
             + ' SQL = ' + #13
@@ -297,7 +302,7 @@ function TManipuladorClasse.FormataStringInsert(NomeTabela: string): string;
 var
   colunasTabela: TArray<TColunasTabela>;
 begin
-  Result := 'procedure ' + FNomeClasse + '.' + 'Inserir' + ';' + #13
+  Result := 'procedure ' + FNomeClasse.ToUpper + '.' + 'Inserir' + ';' + #13
             + 'const'  + #13
             + '   '
             + 'SQL = '  + #13
@@ -325,15 +330,24 @@ begin
   Result := Result + FormataParametros(NomeTabela);
 end;
 
-function TManipuladorClasse.FormataStringPersistir: string;
+function TManipuladorClasse.FormataStringPersistir(NomeTabela: string): string;
 begin
-  Result := 'procedure ' + FNomeClasse + '.Persistir(Novo: Boolean);' + #13
+  var idGeral := '  ' + 'if ' + 'id_geral = 0' + ' then' + #13
+                 + '    ' + 'id_geral := GetIdGeral;' + #13;
+
+
+  Result := 'procedure ' + FNomeClasse.ToUpper + '.Persistir(Novo: Boolean);' + #13
             + 'begin' + #13
             + '  ' + 'if Novo then' + #13
-            + '    ' + 'Inserir' + #13
-            + '  ' + 'else ' + #13
-            + '    ' + 'Atualizar;' + #13
-            + 'end;';
+            + '  ' + 'begin '    + #13;
+  if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
+    Result := Result + idGeral;
+
+  Result := Result + '  ' + ' Inserir;' + #13
+                   + '  ' + 'end'    + #13
+                   + '  ' + 'else ' + #13
+                   + '    ' + 'Atualizar;' + #13
+                   + 'end;';
 end;
 
 function TManipuladorClasse.FormataStringPesquisar(NomeTabela: string; DadosUnk: TArray<TDadosUnique>): string;
@@ -342,7 +356,7 @@ var
   str: string;
 begin
   str := '';
-  Result := 'function ' + FNomeClasse +'.Pesquisar(';
+  Result := 'function ' + FNomeClasse.ToUpper +'.Pesquisar(';
 
   for I := 0 to Length(DadosUnk) - 1 do
     str := str + DadosUnk[I].nome + ': ' + RetornaTipoCampo(DadosUnk[I].tipo) + ifthen(I = High(DadosUnk), '', '; ');
@@ -362,7 +376,7 @@ begin
   str := '';
 
   for I := 0 to Length(DadosUnk) - 1 do
-    str := str + ' ' + DadosUnk[I].nome + ' = ' + ':' + DadosUnk[I].nome + ifthen(I = High(DadosUnk), '''', ' AND ');
+    str := str + ' ' + DadosUnk[I].nome + ' = ' + ':' + DadosUnk[I].nome + ifthen(I = High(DadosUnk), '''', ' AND');
 
   Result := Result + str + ';';
   Result := Result + FormataParametrosPesquisar(NomeTabela, '', False);
@@ -370,7 +384,7 @@ end;
 
 function TManipuladorClasse.FormataStringDelete(NomeTabela, Pk, TipoPk: string): string;
 begin
-  Result := 'procedure ' + FNomeClasse + '.' + 'Excluir' + ';' + #13
+  Result := 'procedure ' + FNomeClasse.ToUpper + '.' + 'Excluir' + ';' + #13
             + 'const'  + #13
             + '   '
             + 'SQL = '  + #13
@@ -412,6 +426,28 @@ begin
   Result := Result + 'end;' + #13;
 end;
 
+function TManipuladorClasse.FormataStringFuncIdGeral(NomeClasse: string): string;
+begin
+  Result := 'function ' + NomeClasse + '.GeraIdGeral: Int64; ' + #13
+            + 'const '    + #13
+            + '  SQL = ''select '' + ''          ' + #13
+            + '        ''* ''+                  ' + #13
+            + '        ''from func_id_geral();'' +  ' + #13
+            + 'var                                    ' + #13
+            + '  qry: TFDQuery;                       ' + #13
+            + 'begin                                  ' + #13
+            + '  qry := TFDQuery.Create(nil);        ' + #13
+            + '  qry.Connection := dm.conexaoBanco;  ' + #13
+            + '                                     ' + #13
+            + '  try                                ' + #13
+            + '    qry.Open(SQL);                   ' + #13
+            + '    Result := qry.FieldByName(''func_id_geral'').AsLargeInt; ' + #13
+            + '  finally          ' + #13
+            + '    qry.Free;  ' + #13
+            + '  end;         ' + #13
+            + 'end; ' + #13 + #13;
+end;
+
 function TManipuladorClasse.FormataMetodosSets(NomeTabela: string): string;
 var
   colunasTabela: TArray<TColunasTabela>;
@@ -424,9 +460,10 @@ begin
 
     for var colunas in colunasTabela do
     begin
-      Result := Result + 'procedure ' + FNomeClasse + '.Set' + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');' + #13;
+      Result := Result + 'procedure ' + FNomeClasse.ToUpper + '.Set'
+                + colunas.NomeColuna + '(' + 'const Value: ' + RetornaTipoCampo(colunas.typeColuna) + ');' + #13;
       Result := Result + 'begin' + #13;
-      Result := Result + '  F' + colunas.NomeColuna + ' := Value;' +  #13;
+      Result := Result + '  F' + colunas.NomeColuna + ' := Value;' + #13;
       Result := Result + 'end;' + #13;
       Result := Result + #13;
     end;
@@ -464,7 +501,8 @@ begin
   Result := Result + '    on E:exception do' + #13;
   Result := Result + '      begin' + #13;
   Result := Result + '        query.Connection.Rollback;' + #13;
-  Result := Result + '        raise Exception.Create(''Erro ao gravar os dados na tabela ' + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
+  Result := Result + '        raise Exception.Create(''Erro ao gravar os dados na tabela '
+                              + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
   Result := Result + '      end;' + #13;
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
@@ -479,7 +517,7 @@ function TManipuladorClasse.FormataStringUpdate(NomeTabela, Pk: string): string;
 var
   colunasTabela: TArray<TColunasTabela>;
 begin
-  Result := 'procedure ' + FNomeClasse + '.' + 'Atualizar' + ';' + #13
+  Result := 'procedure ' + FNomeClasse.ToUpper + '.' + 'Atualizar' + ';' + #13
             + 'const'  + #13
             + '   '
             + 'SQL = '  + #13
@@ -522,12 +560,6 @@ begin
   FCaminho := '';
   FManipuladorInfo.Free;
   inherited;
-end;
-
-function TManipuladorClasse.RetornaMaiuscula(Str: String): string;
-begin
-  Str := LowerCase(Str);
-  Result := UpperCase(Copy(Str, 1, 1)) + Copy(Str, 2, length(Str) -1);
 end;
 
 function TManipuladorClasse.RetornaTipoCampo(NomeTipoCampo: string): String;
