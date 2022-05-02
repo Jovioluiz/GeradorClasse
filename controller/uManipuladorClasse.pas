@@ -65,7 +65,6 @@ begin
 
   try
     try
-
       dadosTabela := FManipuladorInfo.GetColunasTabela(NomeTabela);
       nomeArquivo := FCaminho + '\ucl' + NomeTabela.ToUpper + '.pas';
       FNomeClasse := 'T' + NomeTabela.ToUpper;
@@ -111,7 +110,7 @@ begin
       end;
 
       if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
-        Write(arquivo, '  function GetIdGeral: Int64;' + #13 );
+        Write(arquivo, '    function GetIdGeral: Int64;' + #13 );
 
       Write(arquivo, '  public ');
       Writeln(arquivo);
@@ -428,11 +427,11 @@ end;
 
 function TManipuladorClasse.FormataStringFuncIdGeral(NomeClasse: string): string;
 begin
-  Result := 'function ' + NomeClasse + '.GeraIdGeral: Int64; ' + #13
+  Result := 'function ' + NomeClasse + '.GetIdGeral: Int64; ' + #13
             + 'const '    + #13
-            + '  SQL = ''select '' + ''          ' + #13
+            + '  SQL = ''select '' +           ' + #13
             + '        ''* ''+                  ' + #13
-            + '        ''from func_id_geral();'' +  ' + #13
+            + '        ''from func_id_geral();'' ;  ' + #13
             + 'var                                    ' + #13
             + '  qry: TFDQuery;                       ' + #13
             + 'begin                                  ' + #13
@@ -445,7 +444,7 @@ begin
             + '  finally          ' + #13
             + '    qry.Free;  ' + #13
             + '  end;         ' + #13
-            + 'end; ' + #13 + #13;
+            + 'end; ' + #13 + #13 + #13;
 end;
 
 function TManipuladorClasse.FormataMetodosSets(NomeTabela: string): string;

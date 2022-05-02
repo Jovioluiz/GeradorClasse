@@ -216,12 +216,12 @@ end;
 
 function TCarregaInformacoesBanco.PossuiIdGeral(NomeTabela: string): Boolean;
 var
-  dadosTabela: TArray<TColunasTabela>;
+  camposTabela: TArray<TColunasTabela>;
 begin
-  dadosTabela := GetColunasTabela(NomeTabela);
+  camposTabela := GetColunasTabela(NomeTabela);
   Result := False;
 
-  for var campos in dadosTabela do
+  for var campos in camposTabela do
   begin
     if campos.NomeColuna = 'id_geral' then
       Exit(True);
