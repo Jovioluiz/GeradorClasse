@@ -27,7 +27,6 @@ type TManipuladorClasse = class(TCarregaInformacoesBanco)
     function FormataMetodosSets(NomeTabela: string): string;
     function FormataStringPersistir(NomeTabela: string): string;
     procedure SetManipuladorInfo(const Value: TCarregaInformacoesBanco);
-    function FormataStringFuncIdGeral(NomeClasse: string): string;
   public
     procedure CriaClasse(NomeTabela: string);
     function FormataStringInsert(NomeTabela: string): string;
@@ -80,13 +79,10 @@ begin
       Writeln(arquivo);
       Write(arquivo, 'uses');
       Writeln(arquivo);
-      Write(arquivo, ' FireDAC.Stan.Intf, FireDAC.Stan.Option, ' + #13 +
-                     ' FireDAC.Stan.Error, FireDAC.Stan.Param, FireDAC.DatS, FireDAC.Phys.Intf,   ' + #13 +
-                     ' FireDAC.DApt.Intf, FireDAC.Stan.Async, FireDAC.Comp.Client, FireDAC.DApt,  ' + #13 +
-                     ' FireDAC.Comp.DataSet, Data.DB;');
+      Write(arquivo, ' FireDac.Stan.Param, Data.DB, uPersistencia, uConsultaSQL;');
       Writeln(arquivo);
       Writeln(arquivo);
-      Write(arquivo, 'type ' + FNomeClasse.ToUpper + ' = class ');
+      Write(arquivo, 'type ' + FNomeClasse.ToUpper + ' = class(TPersistencia) ');
       Writeln(arquivo);
       Writeln(arquivo);
 
@@ -109,9 +105,6 @@ begin
         Writeln(arquivo);
       end;
 
-      if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
-        Write(arquivo, '    function GetIdGeral: Int64;' + #13 );
-
       Write(arquivo, '  public ');
       Writeln(arquivo);
 
@@ -126,7 +119,9 @@ begin
         Write(arquivo, '   //Metodo Pesquisar pela chave primaria');
         Writeln(arquivo);
         Write(arquivo, '    ');
-        Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': ' + RetornaTipoCampo(pkTabela.TipoPk) + '): Boolean; ' + ifthen(Assigned(uniqueTabela), ' overload;', ''));
+        Write(arquivo, 'function Pesquisar(' + pkTabela.NomeColunaPk + ': '
+                                             + RetornaTipoCampo(pkTabela.TipoPk) + '): Boolean; '
+                                             + ifthen(Assigned(uniqueTabela), ' overload;', ''));
         FNomeMetodosPublicos.Add('Pesquisar');
       end;
     
@@ -154,19 +149,19 @@ begin
 
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'procedure Inserir;');
+      Write(arquivo, 'procedure Inserir; override;');
       FNomeMetodosPublicos.Add('Inserir');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'procedure Atualizar;');
+      Write(arquivo, 'procedure Atualizar; override;');
       FNomeMetodosPublicos.Add('Atualizar');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'procedure Excluir;');
+      Write(arquivo, 'procedure Excluir; override;');
       FNomeMetodosPublicos.Add('Excluir');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'procedure Persistir(Novo: Boolean);');
+      Write(arquivo, 'procedure Persistir(Novo: Boolean); override;');
       FNomeMetodosPublicos.Add('Persistir');
       Writeln(arquivo);
       Writeln(arquivo);
@@ -190,15 +185,13 @@ begin
       Write(arquivo, 'uses');
       Writeln(arquivo);
       Write(arquivo, '    ');
-      Write(arquivo, 'uDataModule, System.SysUtils, Vcl.Dialogs;');
+      Write(arquivo, 'System.SysUtils, Vcl.Dialogs;');
       Writeln(arquivo);
       Writeln(arquivo);
       Write(arquivo, '{ ' + FNomeClasse + ' }');
       Writeln(arquivo);
       Writeln(arquivo);
 
-      if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
-        Write(arquivo, FormataStringFuncIdGeral(FNomeClasse));
       //metodo insert
       Write(arquivo, FormataStringInsert(NomeTabela));
       Writeln(arquivo);
@@ -269,30 +262,39 @@ function TManipuladorClasse.FormataParametrosPesquisar(NomeTabela, NomePk: strin
 var
   dadosUnk: TArray<TDadosPkUniqueTabela>;
   str: string;
+  colunasTabela: TArray<TColunasTabela>;
 begin
   str := '';
   Result := #13;
   Result := Result + 'var' + #13;
-  Result := Result + '  query: TFDquery;' + #13;
+  Result := Result + '  consulta: TConsultaSQL;' + #13;
   Result := Result + 'begin' + #13;
-  Result := Result + '  query := TFDquery.Create(nil);' + #13;
-  Result := Result + '  query.Connection := dm.conexaoBanco;' + #13 + #13;
+  Result := Result + '  consulta := TConsultaSQL.Create(nil);' + #13;
+  Result := Result + '  consulta.Connection := Conexao;' + #13 + #13;
   Result := Result + '  try' + #13;
 
   if EhPK then
-    Result := Result + '    query.Open(SQL, [' + NomePk + ']);' + #13
+    Result := Result + '    consulta.Open(SQL, [' + NomePk + ']);' + #13
   else
   begin
     dadosUnk := FManipuladorInfo.GetUniqueTabelas(NomeTabela);
-    Result := Result + '    query.Open(SQL, [' ;
+    Result := Result + '    consulta.Open(SQL, [' ;
     for var I := 0 to Length(dadosUnk) - 1 do
       str := str + dadosUnk[I].NomeColunaUnique + ifthen(I = High(dadosUnk), ']', ', ');
   end;
 
   Result := Result + str + #13;
-  Result := Result + '    Result := not query.IsEmpty;' + #13;
+  Result := Result + '    Result := not consulta.IsEmpty;' + #13;
+
+  colunasTabela := GetColunasTabela(NomeTabela);
+  for var I := 0 to Length(colunasTabela) - 1 do
+  begin
+    Result := Result + '    F' + colunasTabela[I].NomeColuna + ' := consulta.FieldByName(''' + colunasTabela[I].NomeColuna + ''').'
+              + RetornaTipoCampoParametros(colunasTabela[I].typeColuna) +  ';' + #13;
+  end;
+
   Result := Result + '  finally' + #13;
-  Result := Result + '    query.Free;' + #13;
+  Result := Result + '    consulta.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;';
 end;
@@ -331,9 +333,8 @@ end;
 
 function TManipuladorClasse.FormataStringPersistir(NomeTabela: string): string;
 begin
-  var idGeral := '  ' + 'if ' + 'id_geral = 0' + ' then' + #13
-                 + '    ' + 'id_geral := GetIdGeral;' + #13;
-
+  var idGeral := '    ' + 'if ' + 'id_geral = 0' + ' then' + #13
+                 + '      ' + 'id_geral := GetIdGeral;' + #13;
 
   Result := 'procedure ' + FNomeClasse.ToUpper + '.Persistir(Novo: Boolean);' + #13
             + 'begin' + #13
@@ -342,7 +343,7 @@ begin
   if FManipuladorInfo.PossuiIdGeral(NomeTabela) then
     Result := Result + idGeral;
 
-  Result := Result + '  ' + ' Inserir;' + #13
+  Result := Result + '    ' + 'Inserir;' + #13
                    + '  ' + 'end'    + #13
                    + '  ' + 'else ' + #13
                    + '    ' + 'Atualizar;' + #13
@@ -400,51 +401,25 @@ begin
 
   Result := Result + #13;
   Result := Result + 'var' + #13;
-  Result := Result + '  query: TFDquery;' + #13;
+  Result := Result + '  consulta: TConsultaSQL;' + #13;
   Result := Result + 'begin' + #13;
-  Result := Result + '  query := TFDquery.Create(nil);' + #13;
-  Result := Result + '  query.Connection := dm.conexaoBanco;' + #13;
-  Result := Result + '  query.Connection.StartTransaction;' + #13;
-  Result := Result + '  query.SQL.Add(SQL);' + #13;
+  Result := Result + '  consulta := TConsultaSQL.Create(nil);' + #13;
+  Result := Result + '  consulta.Connection := Conexao;' + #13;
+  Result := Result + '  consulta.SQL.Add(SQL);' + #13;
   Result := Result + '  try' + #13;
   Result := Result + '    try' + #13;
-  Result := Result + '      query.ParamByName(''' + Pk + ''').' + RetornaTipoCampoParametros(TipoPk) + ' := ' + 'F' + Pk + ';' + #13;
-  Result := Result + '      query.ExecSQL;' + #13;
-  Result := Result + '      query.Connection.Commit;' + #13;
+  Result := Result + '      consulta.ParamByName(''' + Pk + ''').' + RetornaTipoCampoParametros(TipoPk) + ' := ' + 'F' + Pk + ';' + #13;
+  Result := Result + '      consulta.ExecSQL;' + #13;
   Result := Result + '    except' + #13;
   Result := Result + '    on E:exception do' + #13;
   Result := Result + '      begin' + #13;
-  Result := Result + '        query.Connection.Rollback;' + #13;
   Result := Result + '        raise Exception.Create(''Erro ao excluir os dados na tabela ' + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
   Result := Result + '      end;' + #13;
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
-  Result := Result + '    query.Connection.Rollback;' + #13;
-  Result := Result + '    query.Free;' + #13;
+  Result := Result + '    consulta.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;' + #13;
-end;
-
-function TManipuladorClasse.FormataStringFuncIdGeral(NomeClasse: string): string;
-begin
-  Result := 'function ' + NomeClasse + '.GetIdGeral: Int64; ' + #13
-            + 'const '    + #13
-            + '  SQL = ''select '' +           ' + #13
-            + '        ''* ''+                  ' + #13
-            + '        ''from func_id_geral();'' ;  ' + #13
-            + 'var                                    ' + #13
-            + '  qry: TFDQuery;                       ' + #13
-            + 'begin                                  ' + #13
-            + '  qry := TFDQuery.Create(nil);        ' + #13
-            + '  qry.Connection := dm.conexaoBanco;  ' + #13
-            + '                                     ' + #13
-            + '  try                                ' + #13
-            + '    qry.Open(SQL);                   ' + #13
-            + '    Result := qry.FieldByName(''func_id_geral'').AsLargeInt; ' + #13
-            + '  finally          ' + #13
-            + '    qry.Free;  ' + #13
-            + '  end;         ' + #13
-            + 'end; ' + #13 + #13 + #13;
 end;
 
 function TManipuladorClasse.FormataMetodosSets(NomeTabela: string): string;
@@ -479,34 +454,30 @@ begin
   colunasTabela := GetColunasTabela(NomeTabela);
   Result := Result + #13;
   Result := Result + 'var' + #13;
-  Result := Result + '  query: TFDquery;' + #13;
+  Result := Result + '  consulta: TConsultaSQL;' + #13;
   Result := Result + 'begin' + #13;
-  Result := Result + '  query := TFDquery.Create(nil);' + #13;
-  Result := Result + '  query.Connection := dm.conexaoBanco;' + #13;
-  Result := Result + '  query.Connection.StartTransaction;' + #13;
-  Result := Result + '  query.SQL.Add(SQL);' + #13;
+  Result := Result + '  consulta := TConsultaSQL.Create(nil);' + #13;
+  Result := Result + '  consulta.Connection := Conexao;' + #13;
+  Result := Result + '  consulta.SQL.Add(SQL);' + #13;
   Result := Result + '  try' + #13;
   Result := Result + '    try' + #13;
 
   for var I := 0 to Length(colunasTabela) - 1 do
   begin
-    Result := Result + '      query.ParamByName(''' + colunasTabela[I].NomeColuna + ''').'
+    Result := Result + '      consulta.ParamByName(''' + colunasTabela[I].NomeColuna + ''').'
               + RetornaTipoCampoParametros(colunasTabela[I].typeColuna) + ' := ' + 'F' + colunasTabela[I].NomeColuna + ';' + #13;
   end;
 
-  Result := Result + '      query.ExecSQL;' + #13;
-  Result := Result + '      query.Connection.Commit;' + #13;
+  Result := Result + '      consulta.ExecSQL;' + #13;
   Result := Result + '    except' + #13;
   Result := Result + '    on E:exception do' + #13;
   Result := Result + '      begin' + #13;
-  Result := Result + '        query.Connection.Rollback;' + #13;
   Result := Result + '        raise Exception.Create(''Erro ao gravar os dados na tabela '
                               + NomeTabela + '''' + ' + ' + ' E.Message' + ');' + #13;
   Result := Result + '      end;' + #13;
   Result := Result + '    end;' + #13;
   Result := Result + '  finally' + #13;
-  Result := Result + '    query.Connection.Rollback;' + #13;
-  Result := Result + '    query.Free;' + #13;
+  Result := Result + '    consulta.Free;' + #13;
   Result := Result + '  end;' + #13;
   Result := Result + 'end;' + #13;
 
@@ -562,55 +533,47 @@ begin
 end;
 
 function TManipuladorClasse.RetornaTipoCampo(NomeTipoCampo: string): String;
-var
-  tipoCampo: string;
 begin
   if AnsiContainsStr(NomeTipoCampo, 'bigint') then
-    tipoCampo := 'Int64'
+    Exit('Int64')
   else if AnsiContainsStr(NomeTipoCampo, 'numeric') then
-    tipoCampo := 'Currency'
+    Exit('Currency')
   else if AnsiContainsStr(NomeTipoCampo, 'double') then
-    tipoCampo := 'Double'
+    Exit('Double')
   else if AnsiContainsStr(NomeTipoCampo, 'timestamp') then
-    tipoCampo := 'TDateTime'
+    Exit('TDateTime')
   else if AnsiContainsStr(NomeTipoCampo, 'date') then
-    tipoCampo := 'TDate'
+    Exit('TDate')
   else if (AnsiContainsStr(NomeTipoCampo, 'character')) or (AnsiContainsStr(NomeTipoCampo, 'text')) then
-    tipoCampo := 'String'
+    Exit('String')
   else if (AnsiContainsStr(NomeTipoCampo, 'smallint')) or (AnsiContainsStr(NomeTipoCampo, 'integer')) then
-    tipoCampo := 'Integer'
+    Exit('Integer')
   else if AnsiContainsStr(NomeTipoCampo, 'bytea') then
-    tipoCampo := 'TBytes'
+    Exit('TBytes')
   else if AnsiContainsStr(NomeTipoCampo, 'boolean') then
-    tipoCampo := 'Boolean';
-
-  Result := tipoCampo;
+    Exit('Boolean');
 end;
 
 function TManipuladorClasse.RetornaTipoCampoParametros(NomeTipoCampo: string): String;
-var
-  tipoCampo: string;
 begin
   if AnsiContainsStr(NomeTipoCampo, 'bigint') then
-    tipoCampo := 'AsLargeInt'
+    Exit('AsLargeInt')
   else if AnsiContainsStr(NomeTipoCampo, 'numeric') then
-    tipoCampo := 'AsCurrency'
+   Exit('AsCurrency')
   else if AnsiContainsStr(NomeTipoCampo, 'double') then
-    tipoCampo := 'AsFloat'
+    Exit('AsFloat')
   else if AnsiContainsStr(NomeTipoCampo, 'timestamp') then
-    tipoCampo := 'AsDateTime'
+    Exit('AsDateTime')
   else if AnsiContainsStr(NomeTipoCampo, 'date') then
-    tipoCampo := 'AsDate'
+    Exit('AsDate')
   else if (AnsiContainsStr(NomeTipoCampo, 'character')) or (AnsiContainsStr(NomeTipoCampo, 'text')) then
-    tipoCampo := 'AsString'
+    Exit('AsString')
   else if (AnsiContainsStr(NomeTipoCampo, 'smallint')) or (AnsiContainsStr(NomeTipoCampo, 'integer')) then
-    tipoCampo := 'AsInteger'
+    Exit('AsInteger')
   else if AnsiContainsStr(NomeTipoCampo, 'bytea') then
-    tipoCampo := 'AsBytes'
+    Exit('AsBytes')
   else if AnsiContainsStr(NomeTipoCampo, 'boolean') then
-    tipoCampo := 'AsBoolean';
-
-  Result := tipoCampo;
+    Exit('AsBoolean');
 end;
 
 procedure TManipuladorClasse.SetManipuladorInfo(const Value: TCarregaInformacoesBanco);
